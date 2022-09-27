@@ -5,7 +5,7 @@ import numpy as np
 import tensorflow as tf
 import sys
 import pandas as pd
-import pickle
+import pickle as pickle
 
 from absl import flags
 
@@ -100,8 +100,9 @@ def main():
 
     #data from CIFAR-10 https://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz
     batchdict = unpickle("./cifar-10-batches-py/data_batch_1")
-    print(batchdict)
-
+    print('keys',batchdict.keys())
+    npdata = batchdict[b'data']
+    print(npdata, type(npdata), npdata.shape)
     #make data into pandas df
     #images_df = pd.read_csv('./images.csv')
     #labels_df = pd.read_csv('./labels.csv')
