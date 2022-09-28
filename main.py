@@ -67,10 +67,13 @@ def Model():
     model = models.Sequential()
 
     model.add(layers.Conv2D(32, (3,3), activation = 'relu', padding = 'same',input_shape = (32,32,3)))
+    model.add(layers.Dropout(.2))
     model.add(layers.MaxPooling2D(2,2))
     model.add(layers.Conv2D(64, (3,3), activation = 'relu', padding = 'same'))
+    model.add(layers.Dropout(.2))
     model.add(layers.MaxPooling2D(2,2))
     model.add(layers.Conv2D(128, (3,3), activation = 'relu', padding = 'same'))
+    model.add(layers.Dropout(.2))
     model.add(layers.MaxPooling2D(2,2))
     model.add(layers.Conv2D(256, (3,3), activation = 'relu', padding = 'same'))
     model.add(layers.MaxPooling2D(2,2))
@@ -128,7 +131,7 @@ def main():
     #print(data.train.shape, data.train_labels.shape)
     model = Model()
     print(model.summary())
-    history = model.fit(data.train, data.train_labels, epochs=10,
+    history = model.fit(data.train, data.train_labels, epochs=30,
     validation_data=(data.val, data.val_labels))
 
     #PLOTTING
