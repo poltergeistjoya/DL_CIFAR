@@ -5,7 +5,7 @@ import numpy as np
 import tensorflow as tf
 import sys
 import pandas as pd
-import pickle as pickle
+import pickle
 
 from absl import flags
 
@@ -26,10 +26,10 @@ def unpickle(file):
 @dataclass
 class Data:
     rng: InitVar[np.random.Generator]
-    itrain: pd.DataFrame
-    itrainlab: pd.DataFrame
-    itest: pd.DataFrame
-    itestlab: pd.DataFrame
+    itrain: np.ndarray
+    itrainlab: np.ndarray
+    itest: np.ndarray
+    itestlab: np.ndarray
 
     #Training set
     train: np.ndarray = field(init=False)
@@ -44,8 +44,8 @@ class Data:
     test_labels: np.ndarray = field(init=False)
 
     def __post_init__(self,rng):
-        self.train = self.itrain.iloc[:50000].values.reshape(-1,28,28,1)
-        self.train_labels = self.itrainlab.iloc[:50000].to_numpy()
+        self.train = self.itrain.iloc[:40000].reshape(-1,32,32,3)
+        self.train_labels = self.itrainlab.iloc[:40000].to_numpy()
 
         self.val = self.itrain.iloc[50000:].values.reshape(-1,28,28,1)
         self.val_labels = self.itrainlab.iloc[50000:].to_numpy()
@@ -99,10 +99,24 @@ def main():
     np_rng =np.random.default_rng(np_seed)
 
     #data from CIFAR-10 https://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz
-    batchdict = unpickle("./cifar-10-batches-py/data_batch_1")
-    print('keys',batchdict.keys())
-    npdata = batchdict[b'data']
-    print(npdata, type(npdata), npdata.shape)
+    #unpickle all training
+    npdata10 = np.empty((0,3072))
+    nplabels10 = np.empty((0))
+    for  i in range(0,5):
+        batchdict = unpickle("./cifar-10-batches-py/data_batch_" + str(i+1))
+        npdata10 = np.append(npdata10, batchdict[b'data'], axis=0)
+        trainlabels = np.array(batchdict[b'labels'])
+        nplabels10= np.append(nplabels10, trainlabels, axis = 0)
+
+    #npdata10 is now 50000 x 3072
+    #nplabels10 is 50000 (1 dim)
+
+    #unpickle test
+    testdict10 = unpickle("./cifar-10-batches-py/test_batch")
+    # 10000 x 3072
+    nptestdata10 = testdict10[b'data']
+    # 10000 (1 dim)
+    nptestlabels10 = np.array(testdict10[b'labels'])
     #make data into pandas df
     #images_df = pd.read_csv('./images.csv')
     #labels_df = pd.read_csv('./labels.csv')
@@ -111,7 +125,7 @@ def main():
     #test_labels = pd.read_csv('./testlabels.csv')
 
     #call Data class to properly shape data
-    #data = Data(rng = np_rng, itrain = images_df, itrainlab = labels_df, itest = test_images, itestlab = test_labels)
+    data = Data(rng = np_rng, itrain = npdata10, itrainlab = nplabels10, itest = nptestdata10, itestlab = nptestlabels10)
 
     #print(data.train.shape, data.train_labels.shape)
     #model = Model()
