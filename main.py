@@ -44,14 +44,14 @@ class Data:
     test_labels: np.ndarray = field(init=False)
 
     def __post_init__(self,rng):
-        self.train = self.itrain.iloc[:40000].reshape(-1,32,32,3)
-        self.train_labels = self.itrainlab.iloc[:40000].to_numpy()
+        self.train = self.itrain[:40000].reshape(-1,32,32,3).astype('float32')/255.0
+        self.train_labels = self.itrainlab[:40000]
 
-        self.val = self.itrain.iloc[50000:].values.reshape(-1,28,28,1)
-        self.val_labels = self.itrainlab.iloc[50000:].to_numpy()
+        self.val = self.itrain[40000:].reshape(-1,32,32,3).astype('float32')/255.0
+        self.val_labels = self.itrainlab[40000:]
 
-        self.test = self.itest.values.reshape(-1,28,28,1)
-        self.test_labels = self.itestlab.to_numpy()
+        self.test = self.itest.reshape(-1,32,32,3).astype('float32')/255.0
+        self.test_labels = self.itestlab
 
 FLAGS = flags.FLAGS
 flags.DEFINE_integer("num_samples", 50000, "Number of samples in dataset")
@@ -66,21 +66,21 @@ flags.DEFINE_float("sigma_noise", 0.5, "Standard deviation of noise random varia
 def Model():
     model = models.Sequential()
 
-    model.add(layers.Conv2D(32, (3,3), activation = 'relu', input_shape = (28,28,1)))
+    model.add(layers.Conv2D(32, (3,3), activation = 'relu', input_shape = (32,32,3)))
     model.add(layers.MaxPooling2D(2,2))
-    model.add(layers.Conv2D(16, (3,3), activation = 'relu'))
+    model.add(layers.Conv2D(64, (3,3), activation = 'relu'))
     model.add(layers.MaxPooling2D(2,2))
-    model.add(layers.Conv2D(16, (3,3), activation = 'relu'))
+    model.add(layers.Conv2D(128, (3,3), activation = 'relu'))
     model.add(layers.MaxPooling2D(2,2))
 
     #add Dense layers for classification
     model.add(layers.Flatten())
-    model.add(layers.Dense(8, activation='relu'))
+    model.add(layers.Dense(256, activation='relu'))
     # size 10 output layer for 10 classes
     model.add(layers.Dense(10, activity_regularizer = regularizers.L2(0.01)))
 
     #add dropout layer to prevent overfitting, higher rate means more parameters are dropped out
-    model.add(layers.Dropout(.4))
+    model.add(layers.Dropout(.2))
     #model has optimzeer and loss function built in now
     model.compile(optimizer='adam',
               loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
@@ -110,28 +110,24 @@ def main():
 
     #npdata10 is now 50000 x 3072
     #nplabels10 is 50000 (1 dim)
+    #add dim to np labels
+    #nplabels10 = np.expand_dims(nplabels10, axis = 1)
 
     #unpickle test
     testdict10 = unpickle("./cifar-10-batches-py/test_batch")
     # 10000 x 3072
     nptestdata10 = testdict10[b'data']
     # 10000 (1 dim)
+    #nptestlabels10 = np.expand_dims(np.array(testdict10[b'labels']), axis = 1)
     nptestlabels10 = np.array(testdict10[b'labels'])
-    #make data into pandas df
-    #images_df = pd.read_csv('./images.csv')
-    #labels_df = pd.read_csv('./labels.csv')
-
-    #test_images = pd.read_csv('./testimages.csv')
-    #test_labels = pd.read_csv('./testlabels.csv')
-
     #call Data class to properly shape data
     data = Data(rng = np_rng, itrain = npdata10, itrainlab = nplabels10, itest = nptestdata10, itestlab = nptestlabels10)
 
     #print(data.train.shape, data.train_labels.shape)
-    #model = Model()
-    #print(model.summary())
-    #history = model.fit(data.train, data.train_labels, epochs=10,
-    #validation_data=(data.val, data.val_labels))
+    model = Model()
+    print(model.summary())
+    history = model.fit(data.train, data.train_labels, epochs=10,
+    validation_data=(data.val, data.val_labels))
 
     #PLOTTING
     #plt.plot(history.history['accuracy'], label='accuracy')
@@ -143,7 +139,7 @@ def main():
     #plt.tight_layout()
     #plt.savefig('./epochaccuracy.pdf')
 
-    #test_loss, test_acc = model.evaluate(data.test, data.test_labels, verbose=2)
+    test_loss, test_acc = model.evaluate(data.test, data.test_labels, verbose=2)
 
 
 if __name__ == "__main__":
