@@ -66,11 +66,13 @@ flags.DEFINE_float("sigma_noise", 0.5, "Standard deviation of noise random varia
 def Model():
     model = models.Sequential()
 
-    model.add(layers.Conv2D(32, (3,3), activation = 'relu', input_shape = (32,32,3)))
+    model.add(layers.Conv2D(32, (3,3), activation = 'relu', padding = 'same',input_shape = (32,32,3)))
     model.add(layers.MaxPooling2D(2,2))
-    model.add(layers.Conv2D(64, (3,3), activation = 'relu'))
+    model.add(layers.Conv2D(64, (3,3), activation = 'relu', padding = 'same'))
     model.add(layers.MaxPooling2D(2,2))
-    model.add(layers.Conv2D(128, (3,3), activation = 'relu'))
+    model.add(layers.Conv2D(128, (3,3), activation = 'relu', padding = 'same'))
+    model.add(layers.MaxPooling2D(2,2))
+    model.add(layers.Conv2D(256, (3,3), activation = 'relu', padding = 'same'))
     model.add(layers.MaxPooling2D(2,2))
 
     #add Dense layers for classification
@@ -80,7 +82,7 @@ def Model():
     model.add(layers.Dense(10, activity_regularizer = regularizers.L2(0.01)))
 
     #add dropout layer to prevent overfitting, higher rate means more parameters are dropped out
-    model.add(layers.Dropout(.2))
+    model.add(layers.Dropout(.4))
     #model has optimzeer and loss function built in now
     model.compile(optimizer='adam',
               loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
