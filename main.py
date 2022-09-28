@@ -11,6 +11,7 @@ from absl import flags
 
 from dataclasses import dataclass, field, InitVar
 from tensorflow.keras import layers, models, regularizers
+from keras.optimizers import Adam
 
 # classify CIFAR10
 # achieve performance similar to state of the art (99.5%)
@@ -67,15 +68,18 @@ def Model():
     model = models.Sequential()
 
     model.add(layers.Conv2D(32, (3,3), activation = 'relu', padding = 'same',input_shape = (32,32,3)))
+    model.add(layers.Conv2D(32,(3,3), activation = 'relu',padding = 'same'))
     model.add(layers.Dropout(.2))
     model.add(layers.MaxPooling2D(2,2))
+    model.add(layers.Conv2D(64,(3,3), activation = 'relu',padding = 'same'))
     model.add(layers.Conv2D(64, (3,3), activation = 'relu', padding = 'same'))
     model.add(layers.Dropout(.2))
     model.add(layers.MaxPooling2D(2,2))
-    model.add(layers.Conv2D(128, (3,3), activation = 'relu', padding = 'same'))
-    model.add(layers.Dropout(.2))
+    model.add(layers.Conv2D(64, (3,3), activation = 'relu', padding = 'same'))
+    model.add(layers.Conv2D(64, (3,3), activation = 'relu', padding = 'same'))
+    model.add(layers.Dropout(.4))
     model.add(layers.MaxPooling2D(2,2))
-    model.add(layers.Conv2D(256, (3,3), activation = 'relu', padding = 'same'))
+    model.add(layers.Conv2D(128, (3,3), activation = 'relu', padding = 'same'))
     model.add(layers.MaxPooling2D(2,2))
 
     #add Dense layers for classification
@@ -87,7 +91,7 @@ def Model():
     #add dropout layer to prevent overfitting, higher rate means more parameters are dropped out
     model.add(layers.Dropout(.4))
     #model has optimzeer and loss function built in now
-    model.compile(optimizer='adam',
+    model.compile(optimizer=Adam(lr=0.001),
               loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
               metrics=['accuracy'])
 
@@ -131,18 +135,18 @@ def main():
     #print(data.train.shape, data.train_labels.shape)
     model = Model()
     print(model.summary())
-    history = model.fit(data.train, data.train_labels, epochs=30,
+    history = model.fit(data.train, data.train_labels, epochs=60,
     validation_data=(data.val, data.val_labels))
 
     #PLOTTING
-    #plt.plot(history.history['accuracy'], label='accuracy')
-    #plt.plot(history.history['val_accuracy'], label = 'val_accuracy')
-    #plt.xlabel('Epoch')
-    #plt.ylabel('Accuracy')
-    #plt.ylim([0.5, 1])
-    #plt.legend(loc='lower right')
-    #plt.tight_layout()
-    #plt.savefig('./epochaccuracy.pdf')
+    plt.plot(history.history['loss'], label='loss')
+    plt.plot(history.history['val_loss'], label = 'val_loss')
+    plt.xlabel('Epoch')
+    plt.ylabel('loss')
+    plt.ylim([0, 2.5])
+    plt.legend(loc='lower right')
+    plt.tight_layout()
+    plt.savefig('./epochloss.pdf')
 
     test_loss, test_acc = model.evaluate(data.test, data.test_labels, verbose=2)
 
