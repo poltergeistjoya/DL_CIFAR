@@ -135,7 +135,7 @@ def main():
     #print(data.train.shape, data.train_labels.shape)
     model = Model()
     print(model.summary())
-    history = model.fit(data.train, data.train_labels, epochs=60,
+    history = model.fit(data.train, data.train_labels, epochs=120,batch_size=64,
     validation_data=(data.val, data.val_labels))
 
     #PLOTTING
