@@ -10,7 +10,9 @@ import pickle
 from absl import flags
 
 from dataclasses import dataclass, field, InitVar
-from tensorflow.keras import layers, models, regularizers
+from tensorflow import Tensor
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input, Conv2D, ReLU, BatchNormalization, Add, AveragePooling2D, Flatten, Dense
 from keras.optimizers import Adam
 
 # classify CIFAR10
@@ -62,40 +64,69 @@ flags.DEFINE_float("learning_rate", 0.001, "Learning rate/initial step size")
 flags.DEFINE_integer("random_seed", 31415, "Random seed for reproducible results")
 flags.DEFINE_float("sigma_noise", 0.5, "Standard deviation of noise random variable")
 
+#take input tensor and add relu and batch norm
+def relu_bn(inputs: Tensor) -> Tensor:
+    relu = ReLU()(inputs)
+    bn = BatchNormalization()(relu)
+    return bn
 
-#CNN made based off of https://www.tensorflow.org/tutorials/images/cnn
-def Model():
-    model = models.Sequential()
+#take input tensor x pass thorugh conv to get y.
+#adds x to y
+#add relu and batch norm and returns that tensor
 
-    model.add(layers.Conv2D(32, (3,3), activation = 'relu', padding = 'same',input_shape = (32,32,3)))
-    model.add(layers.Conv2D(32,(3,3), activation = 'relu',padding = 'same'))
-    model.add(layers.Dropout(.2))
-    model.add(layers.MaxPooling2D(2,2))
-    model.add(layers.Conv2D(64,(3,3), activation = 'relu',padding = 'same'))
-    model.add(layers.Conv2D(64, (3,3), activation = 'relu', padding = 'same'))
-    model.add(layers.Dropout(.2))
-    model.add(layers.MaxPooling2D(2,2))
-    model.add(layers.Conv2D(64, (3,3), activation = 'relu', padding = 'same'))
-    model.add(layers.Conv2D(64, (3,3), activation = 'relu', padding = 'same'))
-    model.add(layers.Dropout(.4))
-    model.add(layers.MaxPooling2D(2,2))
-    model.add(layers.Conv2D(128, (3,3), activation = 'relu', padding = 'same'))
-    model.add(layers.MaxPooling2D(2,2))
+def residual_block(x: Tensor, downsample: bool, filters: int, kernel_size: int = 3) -> Tensor:
+    print(type(x))
+    y = Conv2D(kernel_size = kernel_size,
+            strides = (1 if not downsample else 2),
+            filters = filters,
+            padding = "same")(x)
+    y = relu_bn(y)
+    y = Conv2D(kernel_size=kernel_size,
+            strides = 1,
+            filters = filters,
+            padding = "same")(y)
 
-    #add Dense layers for classification
-    model.add(layers.Flatten())
-    model.add(layers.Dense(256, activation='relu'))
-    # size 10 output layer for 10 classes
-    model.add(layers.Dense(10, activity_regularizer = regularizers.L2(0.01)))
+    if downsample:
+        x = Conv2D(kernel_size=1,
+                strides = 2,
+                filters = filters,
+                padding = "same")(x)
+    out = Add()([x,y])
+    out = relu_bn(out)
+    return out
 
-    #add dropout layer to prevent overfitting, higher rate means more parameters are dropped out
-    model.add(layers.Dropout(.4))
-    #model has optimzeer and loss function built in now
-    model.compile(optimizer=Adam(lr=0.001),
-              loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-              metrics=['accuracy'])
+def create_res_net():
+    inputs = Input(shape=(32,32,3))
+    num_filters = 64
+
+    t = BatchNormalization()(inputs)
+    t = Conv2D(kernel_size =3,
+            strides = 1,
+            filters = num_filters,
+            padding = "same")(t)
+    t = relu_bn(t)
+
+    num_blocks_list = [2,5,5,2]
+    for i in range(len(num_blocks_list)):
+        num_blocks = num_blocks_list[i]
+        for j in range(num_blocks):
+            t = residual_block(t, downsample=(j==0 and i!=0), filters = num_filters)
+        num_filters *= 2
+
+    t = AveragePooling2D(4)(t)
+    t = Flatten()(t)
+    outputs = Dense(10, activation = 'softmax')(t)
+
+    model = Model(inputs, outputs)
+
+    model.compile(
+            optimizer = 'adam',
+            loss = 'sparse_categorical_crossentropy',
+            metrics=['accuracy']
+            )
 
     return model
+
 
 def main():
 
@@ -133,9 +164,9 @@ def main():
     data = Data(rng = np_rng, itrain = npdata10, itrainlab = nplabels10, itest = nptestdata10, itestlab = nptestlabels10)
 
     #print(data.train.shape, data.train_labels.shape)
-    model = Model()
+    model = create_res_net()
     print(model.summary())
-    history = model.fit(data.train, data.train_labels, epochs=120,batch_size=64,
+    history = model.fit(data.train, data.train_labels, epochs=30,batch_size=256,
     validation_data=(data.val, data.val_labels))
 
     #PLOTTING
