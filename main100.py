@@ -26,7 +26,7 @@ def unpickle(file):
     with open(file, 'rb') as fo:
         dict = pickle.load(fo, encoding='bytes')
     return dict
-
+#This was a big problem in my original model. I was reshaping my data incorrectly and the max my model would ever reach was 66% Thank you Husam for helping me reshape my data!
 def rgb_stack(imagedata):
     r= imagedata[:, 0:1024].reshape(-1,32,32)
     g = imagedata[:, 1024:2048].reshape(-1,32,32)
@@ -76,6 +76,7 @@ flags.DEFINE_float("learning_rate", 0.001, "Learning rate/initial step size")
 flags.DEFINE_integer("random_seed", 31415, "Random seed for reproducible results")
 flags.DEFINE_float("sigma_noise", 0.5, "Standard deviation of noise random variable")
 
+#residual network built off https://towardsdatascience.com/building-a-resnet-in-keras-e8f1322a49ba
 #take input tensor and add relu and batch norm
 def relu_bn(inputs: Tensor) -> Tensor:
     relu = ReLU()(inputs)
@@ -164,7 +165,8 @@ def main():
     #call Data class to properly shape data
     data = Data(rng = np_rng, itrain = nptraindata100, itrainlab = nptrainlabels100, itest = nptestdata100, itestlab = nptestlabels100)
 
-    #data augmentation
+    #data augmentation https://aigeekprogrammer.com/convolutional-neural-network-4-data-augmentation/
+    #Thank you Lucia for sending me the link!
     #make generator for training data
     datagen = ImageDataGenerator(rotation_range = 10,
             horizontal_flip = True,
