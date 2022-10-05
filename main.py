@@ -26,6 +26,15 @@ def unpickle(file):
         dict = pickle.load(fo, encoding='bytes')
     return dict
 
+def rgb_stack(imagedata):
+    r= imagedata[:, 0:1024].reshape(-1,32,32)
+    g = imagedata[:, 1024:2048].reshape(-1,32,32)
+    b = imagedata[:, 2048:].reshape(-1, 32,32)
+
+    stackrgb = np.stack([r,g,b], axis= -1)
+    print(stackrgb.shape)
+    return stackrgb
+
 @dataclass
 class Data:
     rng: InitVar[np.random.Generator]
@@ -47,13 +56,15 @@ class Data:
     test_labels: np.ndarray = field(init=False)
 
     def __post_init__(self,rng):
-        self.train = self.itrain[:40000].reshape(-1,32,32,3).astype('float32')/255.0
+        stacked = rgb_stack(self.itrain)
+        self.train = stacked[:40000].astype('float32')/255.0
         self.train_labels = self.itrainlab[:40000]
 
-        self.val = self.itrain[40000:].reshape(-1,32,32,3).astype('float32')/255.0
+        self.val = stacked[40000:].astype('float32')/255.0
         self.val_labels = self.itrainlab[40000:]
 
-        self.test = self.itest.reshape(-1,32,32,3).astype('float32')/255.0
+        teststacked = rgb_stack(self.itest)
+        self.test = teststacked.astype('float32')/255.0
         self.test_labels = self.itestlab
 
 FLAGS = flags.FLAGS
@@ -162,11 +173,16 @@ def main():
     nptestlabels10 = np.array(testdict10[b'labels'])
     #call Data class to properly shape data
     data = Data(rng = np_rng, itrain = npdata10, itrainlab = nplabels10, itest = nptestdata10, itestlab = nptestlabels10)
+    print("data train shape", data.train.shape)
+    print("data train labels", data.train_labels)
+    print("data val", data.val.shape)
+    print("data val labels", data.val_labels)
+
 
     #print(data.train.shape, data.train_labels.shape)
     model = create_res_net()
     print(model.summary())
-    history = model.fit(data.train, data.train_labels, epochs=30,batch_size=256,
+    history = model.fit(data.train, data.train_labels, epochs=30,batch_size=128,
     validation_data=(data.val, data.val_labels))
 
     #PLOTTING
