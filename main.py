@@ -6,6 +6,7 @@ import tensorflow as tf
 import sys
 import pandas as pd
 import pickle
+import scipy
 
 from absl import flags
 
@@ -14,6 +15,7 @@ from tensorflow import Tensor
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input, Conv2D, ReLU, BatchNormalization, Add, AveragePooling2D, Flatten, Dense
 from keras.optimizers import Adam
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
 # classify CIFAR10
 # achieve performance similar to state of the art (99.5%)
@@ -26,6 +28,7 @@ def unpickle(file):
         dict = pickle.load(fo, encoding='bytes')
     return dict
 
+#This was a big problem in my original model. I was reshaping my data incorrectly and the max my model would every reach was 66% Thank you Husam for helping me reshape my data!
 def rgb_stack(imagedata):
     r= imagedata[:, 0:1024].reshape(-1,32,32)
     g = imagedata[:, 1024:2048].reshape(-1,32,32)
@@ -69,7 +72,7 @@ class Data:
 
 FLAGS = flags.FLAGS
 flags.DEFINE_integer("num_samples", 50000, "Number of samples in dataset")
-flags.DEFINE_integer("batch_size", 50, "Number of samples in batch")
+flags.DEFINE_integer("batch_size", 128, "Number of samples in batch")
 flags.DEFINE_integer("num_iters", 5000, "Number of forward/backward pass iterations")
 flags.DEFINE_float("learning_rate", 0.001, "Learning rate/initial step size")
 flags.DEFINE_integer("random_seed", 31415, "Random seed for reproducible results")
@@ -143,7 +146,7 @@ def main():
 
     #parse flags before we use them
     FLAGS(sys.argv)
-
+    batch_size = FLAGS.batch_size
     #set seed for reproducible results
     seed_sequence = np.random.SeedSequence(FLAGS.random_seed)
     np_seed, tf_seed = seed_sequence.spawn(2) #spawn 2 sequences for 2 threads
@@ -159,10 +162,6 @@ def main():
         trainlabels = np.array(batchdict[b'labels'])
         nplabels10= np.append(nplabels10, trainlabels, axis = 0)
 
-    #npdata10 is now 50000 x 3072
-    #nplabels10 is 50000 (1 dim)
-    #add dim to np labels
-    #nplabels10 = np.expand_dims(nplabels10, axis = 1)
 
     #unpickle test
     testdict10 = unpickle("./cifar-10-batches-py/test_batch")
@@ -173,17 +172,32 @@ def main():
     nptestlabels10 = np.array(testdict10[b'labels'])
     #call Data class to properly shape data
     data = Data(rng = np_rng, itrain = npdata10, itrainlab = nplabels10, itest = nptestdata10, itestlab = nptestlabels10)
-    print("data train shape", data.train.shape)
-    print("data train labels", data.train_labels)
-    print("data val", data.val.shape)
-    print("data val labels", data.val_labels)
+
+    #data augmentation
+    #make generator for training data
+    datagen = ImageDataGenerator(rotation_range = 10,
+            horizontal_flip = True,
+            width_shift_range = 0.1,
+            height_shift_range = 0.1,
+            )
+
+    #make generator object for validation data does nothing
+    valgen = ImageDataGenerator()
 
 
-    #print(data.train.shape, data.train_labels.shape)
     model = create_res_net()
     print(model.summary())
-    history = model.fit(data.train, data.train_labels, epochs=30,batch_size=128,
-    validation_data=(data.val, data.val_labels))
+
+    train_generator = datagen.flow(data.train, data.train_labels, batch_size=batch_size)
+    val_generator = valgen.flow(data.val, data.val_labels, batch_size=batch_size)
+    history = model.fit(train_generator,
+            steps_per_epoch = len(data.train)//batch_size,
+            epochs=30,
+            batch_size=batch_size,
+            validation_data=val_generator,
+            validation_freq =1,
+            validation_steps = data.val.shape[0]//batch_size,
+            verbose = 1)
 
     #PLOTTING
     plt.plot(history.history['loss'], label='loss')
